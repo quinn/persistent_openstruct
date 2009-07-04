@@ -19,11 +19,35 @@ class Moneta::File
   end
 end
 
-class TodoList
+module TodoListMenu
+  def menu choice = false
+    puts " options:\n 1. find a todo
+ 2. make a new one
+ 3. list all the todos
+ 4. exit"
+    choice ||= gets.chomp.to_i
+    case choice
+    when 1
+    when 2      
+      puts "whats it gonna be called??"
+      create_todo gets
+    when 3
+      
+    when 4
+      exit
+    else
+      puts "invalid choice."
+      menu
+    end
+  end
+end
 
-  def help; Todo.help; end
+class TodoList
+  include TodoListMenu
+  
+  def help; TodoList.help; end
   def self.help
-    puts "you didn't enter a command. possible commands:
+    puts "possible commands:
   new: create a new todo
   list: list your todos
   find: find a todo."
@@ -55,17 +79,25 @@ class TodoList
   
   def create_todo name
     todo = Todo.create self, name
+    raise todo.inspect
   end
   
   def list
-    storage.each do |key,val|
-      puts val.inspect
+    @ref = []
+    todos.each do |todo|
+      puts todo.name
+    end
+  end
+  
+  def todos
+    @todos ||= storage.select do |todo|
+      todo.type_is?(Todo)
     end
   end
   
   def find query
-    todos = storage.select do |todo|
-      todo.is_a?(Todo) && todo.name.match(/^#{query}/)
+    todos = todos.select do |todo|
+      todo.name.match(/^#{query}/)
     end
     raise VagueQueryError if todos.length > 1
     todos.first
@@ -100,7 +132,7 @@ class PersistentOpenStruct < OpenStruct
 
     def []= key,val
       res = super
-      persist
+      persist unless key == :type
       res
     end
 
@@ -112,12 +144,17 @@ class PersistentOpenStruct < OpenStruct
   def initialize storage, hash = nil
     @storage = storage
     @table = Table.new storage, self
+    self.type = self.class
     if hash
       for k,v in hash
         @table[k.to_sym] = v
         new_ostruct_member(k)
       end
     end
+  end
+  
+  def type_is? type
+    self.type == type
   end
 end
 
@@ -130,17 +167,18 @@ class Todo < PersistentOpenStruct
   end
   
   def key
-    Digest::MD5.hexdigest name
+    @key ||= Digest::MD5.hexdigest(name)
   end
   
   def self.create list, name
     todo = new list
     todo.name = name
+    todo
   end
 end
 
 if ARGV[0]
   TodoList.new *ARGV
 else
-  TodoList.help
+  TodoList.new 'menu'
 end
