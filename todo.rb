@@ -4,6 +4,7 @@ require 'moneta-0.6.1/lib/moneta/file'
 require 'digest/md5'
 require 'ostruct'
 require 'pathname'
+require 'uuid'
 
 class Moneta::File
   include Enumerable
@@ -13,6 +14,8 @@ class Moneta::File
       if blk.arity == 2
         blk.call path.basename.to_s, self[path.basename]
       else
+        val = self[path.basename]
+        val.key = path.basename.to_s if val.respond_to? :key
         blk.call self[path.basename]
       end
     end
@@ -21,7 +24,7 @@ end
 
 module TodoListMenu
   def menu choice = false
-    puts " options:\n 1. find a todo
+    puts "options:\n 1. find a todo
  2. make a new one
  3. list all the todos
  4. exit"
@@ -32,13 +35,53 @@ module TodoListMenu
       puts "whats it gonna be called??"
       create_todo gets
     when 3
-      
+      puts "active todos:"
+      list_active
     when 4
-      exit
+      return
     else
       puts "invalid choice."
-      menu
     end
+    menu
+  end
+  
+  def list_active
+    id = 1
+    ref = {}
+    todos.each do |todo|
+      puts " #{id}. #{todo.name}"
+      ref[id] = todo
+      id += 1
+    end
+    puts " #{id}. (cancel)"
+    choice ||= gets.chomp.to_i
+    return if choice == id
+    todo = ref[choice]
+    if todo
+      work_on_a_todo todo
+    else
+      puts "invalid entry"
+    end
+    list_active
+  end
+  
+  def work_on_a_todo todo
+    puts "What do you want to do with it?
+ 1. mark it as finished
+ 2. delete it forever"
+    choice ||= gets.chomp.to_i
+    case choice
+    when 1
+      todo.finished = true
+      return
+    when 2
+      raise todo.key.inspect
+      storage.delete(todo.key)
+      return
+    else
+      puts "invalid entry."
+    end
+    work_on_a_todo todo
   end
 end
 
@@ -54,6 +97,7 @@ class TodoList
   end
   
   def initialize command, *args
+    ARGV.clear
     case command
     when 'new'
       command = 'create_todo'
@@ -79,7 +123,6 @@ class TodoList
   
   def create_todo name
     todo = Todo.create self, name
-    raise todo.inspect
   end
   
   def list
@@ -90,8 +133,8 @@ class TodoList
   end
   
   def todos
-    @todos ||= storage.select do |todo|
-      todo.type_is?(Todo)
+    @todos = storage.select do |item|
+      item.is_a?(Todo)
     end
   end
   
@@ -123,28 +166,12 @@ class TodoList
 end
 
 class PersistentOpenStruct < OpenStruct
-  class Table < Hash
-    def initialize storage, struct
-      @storage = storage
-      @struct = struct
-      super nil
-    end
-
-    def []= key,val
-      res = super
-      persist unless key == :type
-      res
-    end
-
-    def persist
-      @storage[@struct.key] = self
-    end
-  end
+  attr_accessor :key, :storage
   
-  def initialize storage, hash = nil
+  def initialize storage, key = nil, hash = nil
     @storage = storage
-    @table = Table.new storage, self
-    self.type = self.class
+    @key = key
+    @table = {}
     if hash
       for k,v in hash
         @table[k.to_sym] = v
@@ -153,27 +180,28 @@ class PersistentOpenStruct < OpenStruct
     end
   end
   
-  def type_is? type
-    self.type == type
+  def save
+    storage[key] = self
+    self
   end
 end
 
 class Todo < PersistentOpenStruct
-  attr_accessor :list, :key
+  attr_accessor :list
   
-  def initialize list 
+  def initialize list, key = nil
     @list = list
-    super list.storage
+    super list.storage, key
   end
   
   def key
-    @key ||= Digest::MD5.hexdigest(name)
+    @key ||= UUID.generate
   end
   
   def self.create list, name
     todo = new list
     todo.name = name
-    todo
+    todo.save
   end
 end
 
