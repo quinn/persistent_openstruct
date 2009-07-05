@@ -17,6 +17,7 @@ class PersistentOpenStruct < OpenStruct
       for k,v in hash
         @table[k.to_sym] = v
         new_ostruct_member(k)
+        save
       end
     end
   end
