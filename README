@@ -1,1 +1,1 @@
-CLI based todo list
+Small library for creating OpenStructs that persist their values to the key value store of your choice (via moneta).
