@@ -5,11 +5,14 @@ require 'pathname'
 require 'uuid'
 
 require File.dirname(__FILE__) + '/moneta-0.6.1/lib/moneta'
-require File.dirname(__FILE__) + '/moneta-0.6.1/lib/moneta/file'
-require File.dirname(__FILE__) + '/moneta-0.6.1/lib/moneta/rufus'
 
 class PersistentOpenStruct < OpenStruct
   attr_accessor :key, :storage
+  
+  def self.inherited subclass
+    lib = subclass.config.storage_class.split('::')[1].downcase
+    require File.dirname(__FILE__) + '/moneta-0.6.1/lib/moneta/' + lib
+  end
   
   def initialize *args
     super
@@ -17,12 +20,22 @@ class PersistentOpenStruct < OpenStruct
   end
   
   def self.storage
-    @storage ||= eval(config[:storage_class]).new config[:storage_config]
+    @storage ||= eval(config.storage_class).new config.storage_config
+  end
+  
+  def self.config_file= path
+    @@config_file = path
+  end
+  
+  def self.config_file
+    @@config_file ||= 'config/storage_config.yml'
   end
   
   def self.config
-    config = YAML::load File.read( File.expand_path('spec/storage_config.yml') )
-    @config = config[self.to_s] || config['PersistentOpenStruct']
+    return @config if @config
+    config = YAML::load File.read( config_file )
+    @config = OpenStruct.new(config[self.to_s] || config['PersistentOpenStruct'])
+    @config
   end
   
   def new_ostruct_member(name)
