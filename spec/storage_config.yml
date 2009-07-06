@@ -1,0 +1,8 @@
+PersistentOpenStruct:
+  :storage_class: Moneta::File
+  :storage_config:
+    :path: spec/data
+RufusBackedOstruct:
+  :storage_class: Moneta::Rufus
+  :storage_config:
+    :file: spec/data

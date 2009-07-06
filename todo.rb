@@ -1,6 +1,6 @@
 require 'rubygems'
-require 'moneta-0.6.1/lib/moneta'
-require 'moneta-0.6.1/lib/moneta/file'
+require 'lib/moneta-0.6.1/lib/moneta'
+require 'lib/moneta-0.6.1/lib/moneta/file'
 require 'digest/md5'
 require 'ostruct'
 require 'pathname'
